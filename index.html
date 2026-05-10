@@ -864,7 +864,8 @@
     'use strict';
 
     // ==================== Constants ====================
-    const JSDELIVR_FILES_API = 'https://data.jsdelivr.com/v1/package/gh/ChromaPIE/Balachou@main/flat';
+    const GITHUB_TREE_API = 'https://api.github.com/repos/ChromaPIE/Balachou/git/trees/main?recursive=1';
+    const MANIFEST_URL = 'repo-tree.json';
     const JSDELIVR_RAW_BASE = 'https://cdn.jsdelivr.net/gh/ChromaPIE/Balachou@main';
     const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ChromaPIE/Balachou/main';
     const PROXY_PREFIX = 'https://gh-proxy.org/';
@@ -1001,9 +1002,38 @@
     }
 
     async function fetchLiveTree() {
-      const data = await fetchJSON(JSDELIVR_FILES_API);
-      return data.files
-        .map(item => ({ p: item.name.replace(/^\//, ''), t: 'f', s: item.size || 0 }));
+      const errors = [];
+
+      try {
+        return await fetchManifestTree();
+      } catch (e) {
+        errors.push(e);
+      }
+
+      try {
+        const files = await fetchGithubTree();
+        toast('站点目录清单不可用，尝试 GitHub 目录接口', 'error');
+        return files;
+      } catch (e) {
+        errors.push(e);
+      }
+
+      throw errors[errors.length - 1];
+    }
+
+    async function fetchManifestTree() {
+      const files = await fetchJSON(MANIFEST_URL);
+      if (!Array.isArray(files) || !files.length) throw new Error('repo-tree.json is empty');
+      return files;
+    }
+
+    async function fetchGithubTree() {
+      const data = await fetchJSON(GITHUB_TREE_API);
+      const files = data.tree
+        .filter(item => item.type === 'blob')
+        .map(item => ({ p: item.path, t: 'f', s: item.size || 0 }));
+      if (!files.length) throw new Error('GitHub tree is empty');
+      return files;
     }
 
     function buildTreeFromStatic(items) {
