@@ -739,7 +739,61 @@
       opacity: 1;
     }
 
-    /* ==================== Responsive ==================== */
+    /* ==================== Settings Dialog ==================== */
+    .dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: calc(var(--header-height) + 12px) 18px 18px;
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(3px);
+    }
+    .dialog-backdrop.open { display: flex; }
+    .settings-dialog {
+      width: min(360px, calc(100vw - 36px));
+      background: linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg), 0 0 28px var(--accent-dim);
+      overflow: hidden;
+      animation: fadeIn .18s ease;
+    }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-header h3 {
+      font-size: 14px;
+      letter-spacing: .2px;
+    }
+    .settings-body {
+      padding: 8px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px;
+      border-radius: var(--radius);
+    }
+    .settings-row:hover { background: var(--bg-tertiary); }
+    .settings-row .title {
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .settings-row .desc {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
     @media (max-width: 768px) {
       .header .menu-btn { display: flex; }
       .subtitle { display: none; }
@@ -795,6 +849,9 @@
       </label>
       <div class="spacer"></div>
       <div class="actions">
+        <button class="btn" id="btnSettings" title="设置">
+          <span class="btn-icon">&#9881;</span> 设置
+        </button>
         <button class="btn" id="btnRefresh" title="刷新">
           <span class="btn-icon">&#8635;</span> 刷新
         </button>
@@ -848,6 +905,37 @@
     </div>
   </div>
 
+  <div class="dialog-backdrop" id="settingsDialog" aria-hidden="true">
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="settings-header">
+        <h3 id="settingsTitle">显示设置</h3>
+        <button class="btn" id="btnCloseSettings" title="关闭">关闭</button>
+      </div>
+      <div class="settings-body">
+        <label class="settings-row">
+          <span>
+            <span class="title">隐藏英文语言文件</span>
+            <span class="desc">隐藏 en-us.lua / en_us.lua</span>
+          </span>
+          <span class="proxy-switch">
+            <input type="checkbox" id="settingHideEnglish">
+            <span class="track"></span>
+          </span>
+        </label>
+        <label class="settings-row">
+          <span>
+            <span class="title">隐藏内部文件</span>
+            <span class="desc">隐藏 .github、.gitattributes、LICENSE</span>
+          </span>
+          <span class="proxy-switch">
+            <input type="checkbox" id="settingHideInternal">
+            <span class="track"></span>
+          </span>
+        </label>
+      </div>
+    </section>
+  </div>
+
   <div class="toast" id="toast"></div>
   <div class="progress-bar" id="progressBar" style="width:0"></div>
 
@@ -869,6 +957,8 @@
     const JSDELIVR_RAW_BASE = 'https://cdn.jsdelivr.net/gh/ChromaPIE/Balachou@main';
     const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ChromaPIE/Balachou/main';
     const PROXY_PREFIX = 'https://gh-proxy.org/';
+    const BALACHOU_SETTINGS_KEY = 'balachouHubSettings';
+    const DEFAULT_SETTINGS = { hideEnglishFiles: false, hideInternalFiles: true };
     let useProxy = true;
 
     // Latest known snapshot — only used when jsDelivr file index is unavailable.
@@ -897,8 +987,11 @@
 
     // ==================== State ====================
     let treeData = null;
+    let visibleTreeData = null;
     let activeFile = null;
     let currentContent = null;
+    let pendingHashPath = null;
+    let settings = loadSettings();
 
     // ==================== DOM Refs ====================
     const $ = id => document.getElementById(id);
@@ -911,6 +1004,11 @@
     const btnDownload = $('btnDownload');
     const btnDownloadAll = $('btnDownloadAll');
     const btnRefresh = $('btnRefresh');
+    const btnSettings = $('btnSettings');
+    const btnCloseSettings = $('btnCloseSettings');
+    const settingsDialog = $('settingsDialog');
+    const settingHideEnglish = $('settingHideEnglish');
+    const settingHideInternal = $('settingHideInternal');
     const menuBtn = $('menuBtn');
     const sidebar = $('sidebar');
     const sidebarOverlay = $('sidebarOverlay');
@@ -995,8 +1093,8 @@
 
       showProgress(80);
       treeData = buildTreeFromStatic(items);
-      renderTree(treeData);
-      updateStats(treeData);
+      applyTreeSettings();
+      openFileFromHash();
       showProgress(100);
       hideProgress();
     }
@@ -1099,7 +1197,67 @@
       `;
     }
 
-    // ==================== Render Tree ====================
+    // ==================== Settings ====================
+    function loadSettings() {
+      try {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(BALACHOU_SETTINGS_KEY) || '{}') };
+      } catch {
+        return { ...DEFAULT_SETTINGS };
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem(BALACHOU_SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function syncSettingsControls() {
+      settingHideEnglish.checked = settings.hideEnglishFiles;
+      settingHideInternal.checked = settings.hideInternalFiles;
+    }
+
+    function shouldHideFile(path) {
+      const name = path.split('/').pop().toLowerCase();
+      if (settings.hideEnglishFiles && /^en[-_]us\.lua$/i.test(name)) return true;
+      if (settings.hideInternalFiles) {
+        return path === '.gitattributes' || path === 'LICENSE' || path.startsWith('.github/');
+      }
+      return false;
+    }
+
+    function filterTreeBySettings(nodes) {
+      const result = [];
+      for (const node of nodes) {
+        if (node.type === 'dir') {
+          const children = filterTreeBySettings(node.children);
+          if (children.length) result.push({ ...node, children });
+        } else if (!shouldHideFile(node.path)) {
+          result.push(node);
+        }
+      }
+      return result;
+    }
+
+    function applyTreeSettings() {
+      if (!treeData) return;
+      visibleTreeData = filterTreeBySettings(treeData);
+      renderTree(visibleTreeData);
+      updateStats(visibleTreeData);
+      if (activeFile && shouldHideFile(activeFile.path)) {
+        clearActiveFile();
+        toast('当前文件已被设置隐藏', 'error');
+      }
+      if (pendingHashPath) openFileFromHash();
+    }
+
+    function clearActiveFile() {
+      activeFile = null;
+      currentContent = null;
+      contentHeader.style.display = 'none';
+      previewWrapper.innerHTML = '';
+      previewWrapper.appendChild(welcomeScreen);
+      welcomeScreen.style.display = '';
+    }
+
     function renderTree(nodes) {
       treeContainer.innerHTML = '';
       nodes.forEach((node, i) => {
@@ -1180,7 +1338,7 @@
         item.dataset.path = node.path;
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          openFile(node, item);
+          openFile(node, item, true);
         });
         el.appendChild(item);
       }
@@ -1188,16 +1346,58 @@
       return el;
     }
 
-    // ==================== File Icons ====================
+    // ==================== Deep Links ====================
+    function filePathToHash(path) {
+      return '#/file/' + encodeURIComponent(path);
+    }
+
+    function hashToFilePath() {
+      const prefix = '#/file/';
+      if (!location.hash.startsWith(prefix)) return null;
+      try { return decodeURIComponent(location.hash.slice(prefix.length)); }
+      catch { return null; }
+    }
+
+    function setFileHash(path) {
+      const next = filePathToHash(path);
+      if (location.hash !== next) history.replaceState(null, '', next);
+    }
+
+    function findFileNode(nodes, path) {
+      for (const node of nodes || []) {
+        if (node.type === 'dir') {
+          const found = findFileNode(node.children, path);
+          if (found) return found;
+        } else if (node.path === path) {
+          return node;
+        }
+      }
+      return null;
+    }
+
+    function openFileFromHash() {
+      const path = hashToFilePath();
+      if (!path) return;
+      const node = findFileNode(visibleTreeData, path);
+      if (!node) {
+        pendingHashPath = path;
+        toast('链接指向的文件不存在或已被隐藏', 'error');
+        return;
+      }
+      pendingHashPath = null;
+      openFile(node);
+    }
+
     function fileIconSVG(name) {
       const ext = name.split('.').pop().toLowerCase();
       return ICONS[ext] || ICONS.file;
     }
 
     // ==================== Open File ====================
-    async function openFile(node, itemEl) {
+    async function openFile(node, itemEl, updateHash = false) {
       activeFile = node;
       currentContent = null;
+      if (updateHash) setFileHash(node.path);
 
       document.querySelectorAll('.tree-item.active').forEach(el => el.classList.remove('active'));
       const activeItem = itemEl || Array.from(document.querySelectorAll('.tree-item[data-path]'))
@@ -1327,7 +1527,7 @@
         const zip = new JSZip();
         let done = 0;
         const allFiles = [];
-        collectFiles(treeData, '', allFiles);
+        collectFiles(visibleTreeData || treeData, '', allFiles);
         const total = allFiles.length;
 
         for (const f of allFiles) {
@@ -1359,6 +1559,36 @@
         else result.push({ path: prefix + n.name });
       }
     }
+
+    // ==================== Settings Dialog ====================
+    function openSettingsDialog() {
+      syncSettingsControls();
+      settingsDialog.classList.add('open');
+      settingsDialog.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeSettingsDialog() {
+      settingsDialog.classList.remove('open');
+      settingsDialog.setAttribute('aria-hidden', 'true');
+    }
+
+    btnSettings.addEventListener('click', openSettingsDialog);
+    btnCloseSettings.addEventListener('click', closeSettingsDialog);
+    settingsDialog.addEventListener('click', (e) => {
+      if (e.target === settingsDialog) closeSettingsDialog();
+    });
+    settingHideEnglish.addEventListener('change', () => {
+      settings.hideEnglishFiles = settingHideEnglish.checked;
+      saveSettings();
+      applyTreeSettings();
+    });
+    settingHideInternal.addEventListener('change', () => {
+      settings.hideInternalFiles = settingHideInternal.checked;
+      saveSettings();
+      applyTreeSettings();
+    });
+
+    window.addEventListener('hashchange', openFileFromHash);
 
     // ==================== Mobile Sidebar ====================
     menuBtn.addEventListener('click', () => {
@@ -1412,6 +1642,7 @@
 
     // ==================== Keyboard Shortcuts ====================
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSettingsDialog();
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !window.getSelection().toString()) {
         if (currentContent) {
           e.preventDefault();
