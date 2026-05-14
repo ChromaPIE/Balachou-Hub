@@ -305,6 +305,10 @@
       border-radius: 10px;
       border: 1px solid #33ffd320;
     }
+    .sidebar-header .count-muted {
+      color: var(--text-secondary);
+      opacity: .75;
+    }
 
     .tree-container {
       flex: 1;
@@ -1099,6 +1103,10 @@
       hideProgress();
     }
 
+    function isLocalFilePage() {
+      return location.protocol === 'file:';
+    }
+
     async function fetchLiveTree() {
       const errors = [];
 
@@ -1110,7 +1118,7 @@
 
       try {
         const files = await fetchGithubTree();
-        toast('站点目录清单不可用，尝试 GitHub 目录接口', 'error');
+        if (!isLocalFilePage()) toast('站点目录清单不可用，尝试 GitHub 目录接口', 'error');
         return files;
       } catch (e) {
         errors.push(e);
@@ -1180,6 +1188,18 @@
     }
 
     // ==================== Stats ====================
+    function countFiles(nodes) {
+      let files = 0;
+      function walk(list) {
+        for (const n of list) {
+          if (n.type === 'dir') walk(n.children);
+          else files++;
+        }
+      }
+      walk(nodes || []);
+      return files;
+    }
+
     function updateStats(nodes) {
       let files = 0, totalSize = 0;
       function walk(list) {
@@ -1189,7 +1209,10 @@
         }
       }
       walk(nodes);
-      fileCount.textContent = files;
+      const totalFiles = countFiles(treeData);
+      fileCount.innerHTML = files === totalFiles
+        ? String(files)
+        : `${files} <span class="count-muted">| ${totalFiles}</span>`;
       statsArea.innerHTML = `
         <div class="stat"><div class="num">${files}</div><div class="label">Files</div></div>
         <div class="stat"><div class="num">${nodes.length}</div><div class="label">Mods</div></div>
@@ -1258,6 +1281,10 @@
       welcomeScreen.style.display = '';
     }
 
+    function shouldAutoExpandDir(node) {
+      return node.type === 'dir' && node.children.length === 1 && node.children[0].type === 'dir';
+    }
+
     function renderTree(nodes) {
       treeContainer.innerHTML = '';
       nodes.forEach((node, i) => {
@@ -1297,8 +1324,8 @@
           children.appendChild(buildTreeNode(child, depth + 1));
         }
 
-        // Top-level expanded, deeper collapsed — CSS handles max-height via class
-        if (depth > 0) {
+        const shouldCollapse = depth > 0 && !shouldAutoExpandDir(node);
+        if (shouldCollapse) {
           children.classList.add('collapsed');
           toggle.classList.remove('expanded');
         }
