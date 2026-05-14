@@ -1330,6 +1330,8 @@
         name.textContent = node.name;
         item.appendChild(name);
 
+        item.dataset.path = node.path;
+
         const children = document.createElement('div');
         children.className = 'tree-children';
         for (const child of node.children) {
@@ -1434,6 +1436,18 @@
       return null;
     }
 
+    function expandAncestorsByPath(path) {
+      const segments = path.split('/');
+      for (let i = 1; i < segments.length; i++) {
+        const ancestorPath = segments.slice(0, i).join('/');
+        const dirItem = document.querySelector(`.tree-item[data-path="${CSS.escape(ancestorPath)}"]`);
+        if (dirItem && dirItem.nextElementSibling?.classList.contains('tree-children')) {
+          const childrenEl = dirItem.nextElementSibling;
+          if (childrenEl.classList.contains('collapsed')) dirItem.click();
+        }
+      }
+    }
+
     function openFileFromHash() {
       const path = hashToFilePath();
       if (!path) return;
@@ -1444,6 +1458,7 @@
         return;
       }
       pendingHashPath = null;
+      expandAncestorsByPath(path);
       openFile(node);
     }
 
