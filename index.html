@@ -966,7 +966,7 @@
 
     // ==================== Constants ====================
     const GITHUB_TREE_API = 'https://api.github.com/repos/ChromaPIE/Balachou/git/trees/main?recursive=1';
-    const MANIFEST_URL = 'repo-tree.json';
+    const GIST_MANIFEST_PATH = 'https://gist.githubusercontent.com/ChromaPIE/fe2c92c46b50b059b9f93d149344b46a/raw/repo-tree.json';
     const JSDELIVR_RAW_BASE = 'https://cdn.jsdelivr.net/gh/ChromaPIE/Balachou@main';
     const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ChromaPIE/Balachou/main';
     const PROXY_PREFIX = 'https://gh-proxy.org/';
@@ -1137,7 +1137,8 @@
     }
 
     async function fetchManifestTree() {
-      const files = await fetchJSON(MANIFEST_URL);
+      const url = useProxy ? `${PROXY_PREFIX}${GIST_MANIFEST_PATH}` : GIST_MANIFEST_PATH;
+      const files = await fetchJSON(url);
       if (!Array.isArray(files) || !files.length) throw new Error('repo-tree.json is empty');
       return files;
     }
