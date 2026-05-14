@@ -1263,6 +1263,7 @@
     function applyTreeSettings() {
       if (!treeData) return;
       visibleTreeData = filterTreeBySettings(treeData);
+      annotateSingleChildChains(visibleTreeData);
       renderTree(visibleTreeData);
       updateStats(visibleTreeData);
       if (activeFile && shouldHideFile(activeFile.path)) {
@@ -1281,8 +1282,18 @@
       welcomeScreen.style.display = '';
     }
 
-    function shouldAutoExpandDir(node) {
-      return node.type === 'dir' && node.children.length === 1 && node.children[0].type === 'dir';
+    function annotateSingleChildChains(nodes) {
+      for (const node of nodes) {
+        if (node.type !== 'dir') continue;
+        annotateSingleChildChains(node.children);
+        if (node.children.length === 1 && node.children[0].type === 'dir') {
+          const child = node.children[0];
+          node._chainName = child._chainName
+            ? node.name + '/' + child._chainName
+            : node.name + '/' + child.name;
+          node._deepChildren = child._deepChildren || child.children;
+        }
+      }
     }
 
     function renderTree(nodes) {
@@ -1303,14 +1314,15 @@
       item.style.paddingLeft = (14 + depth * 18) + 'px';
 
       if (node.type === 'dir') {
+        const isExpanded = depth === 0;
         const toggle = document.createElement('span');
-        toggle.className = 'tree-toggle expanded';
+        toggle.className = 'tree-toggle' + (isExpanded ? ' expanded' : '');
         toggle.innerHTML = ICONS.chevron;
         item.appendChild(toggle);
 
         const icon = document.createElement('span');
         icon.className = 'icon';
-        icon.innerHTML = ICONS.folderOpen;
+        icon.innerHTML = isExpanded ? ICONS.folderOpen : ICONS.folder;
         item.appendChild(icon);
 
         const name = document.createElement('span');
@@ -1324,17 +1336,37 @@
           children.appendChild(buildTreeNode(child, depth + 1));
         }
 
-        const shouldCollapse = depth > 0 && !shouldAutoExpandDir(node);
-        if (shouldCollapse) {
-          children.classList.add('collapsed');
-          toggle.classList.remove('expanded');
-        }
+        if (!isExpanded) children.classList.add('collapsed');
+
+        const _isChain = depth > 0 && !!node._chainName;
 
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          const collapsed = children.classList.toggle('collapsed');
-          toggle.classList.toggle('expanded', !collapsed);
-          icon.innerHTML = collapsed ? ICONS.folder : ICONS.folderOpen;
+          const isCollapsed = children.classList.contains('collapsed');
+
+          if (isCollapsed && _isChain && !item._isMorphed) {
+            name.textContent = node._chainName;
+            children.innerHTML = '';
+            node._deepChildren.forEach(ch => children.appendChild(buildTreeNode(ch, depth + 1)));
+            children.classList.remove('collapsed');
+            toggle.classList.add('expanded');
+            icon.innerHTML = ICONS.folderOpen;
+            item._isMorphed = true;
+          } else if (isCollapsed && item._isMorphed) {
+            name.textContent = node._chainName;
+            children.classList.remove('collapsed');
+            toggle.classList.add('expanded');
+            icon.innerHTML = ICONS.folderOpen;
+          } else if (!isCollapsed && item._isMorphed) {
+            name.textContent = node.name;
+            children.classList.add('collapsed');
+            toggle.classList.remove('expanded');
+            icon.innerHTML = ICONS.folder;
+          } else {
+            const collapsed = children.classList.toggle('collapsed');
+            toggle.classList.toggle('expanded', !collapsed);
+            icon.innerHTML = collapsed ? ICONS.folder : ICONS.folderOpen;
+          }
         });
 
         el.appendChild(item);
