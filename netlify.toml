@@ -1,5 +1,5 @@
 [build]
-  command = "node scripts/generate-repo-tree.mjs"
+  command = "npm install && node scripts/generate-repo-tree.mjs && node scripts/generate-font-subset.mjs"
   publish = "."
 
 [build.environment]

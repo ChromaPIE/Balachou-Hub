@@ -7,6 +7,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: 'Sarasa Mono Slab SC';
+      src: url('assets/SarasaMonoSlabSC-Regular.woff2') format('woff2'),
+          url('assets/SarasaMonoSlabSC-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
     /* ==================== Design Tokens ==================== */
     :root {
       --bg-deep: #080b10;
@@ -36,7 +45,7 @@
       --sidebar-width: 320px;
       --header-height: 56px;
       --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-mono: 'Space Mono', 'JetBrains Mono', 'Fira Code', monospace;
+      --font-mono: 'Sarasa Mono Slab SC', 'Space Mono', 'JetBrains Mono', 'Fira Code', monospace;
       --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
       --shadow-md: 0 4px 16px rgba(0,0,0,.4);
       --shadow-lg: 0 12px 40px rgba(0,0,0,.5);
