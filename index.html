@@ -7,15 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    @font-face {
-      font-family: 'Sarasa Mono Slab SC';
-      src: url('https://raw.githubusercontent.com/ChromaPIE/Balachou/main/assets/sarasa-mono-slab-sc.woff2') format('woff2'),
-          url('assets/SarasaMonoSlabSC-Regular.ttf') format('truetype');
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-
     /* ==================== Design Tokens ==================== */
     :root {
       --bg-deep: #080b10;
@@ -967,6 +958,8 @@
     // ==================== Constants ====================
     const GITHUB_TREE_API = 'https://api.github.com/repos/ChromaPIE/Balachou/git/trees/main?recursive=1';
     const GIST_MANIFEST_PATH = 'https://gist.githubusercontent.com/ChromaPIE/fe2c92c46b50b059b9f93d149344b46a/raw/repo-tree.json';
+    const FONT_WOFF2_PATH = 'https://raw.githubusercontent.com/ChromaPIE/Balachou/main/assets/sarasa-mono-slab-sc.woff2';
+    const FONT_TTF_PATH = 'assets/SarasaMonoSlabSC-Regular.ttf';
     const JSDELIVR_RAW_BASE = 'https://cdn.jsdelivr.net/gh/ChromaPIE/Balachou@main';
     const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ChromaPIE/Balachou/main';
     const PROXY_PREFIX = 'https://gh-proxy.org/';
@@ -1684,9 +1677,22 @@
       sidebarOverlay.classList.remove('open');
     });
 
+    // ==================== Font Loading ====================
+    function loadFontFace() {
+      const id = 'dynamic-font-face';
+      const old = document.getElementById(id);
+      if (old) old.remove();
+      const woff2 = useProxy ? `${PROXY_PREFIX}${FONT_WOFF2_PATH}` : FONT_WOFF2_PATH;
+      const style = document.createElement('style');
+      style.id = id;
+      style.textContent = `@font-face{font-family:'Sarasa Mono Slab SC';src:url('${woff2}') format('woff2'),url('${FONT_TTF_PATH}') format('truetype');font-weight:400;font-style:normal;font-display:swap;}`;
+      document.head.appendChild(style);
+    }
+
     // ==================== Proxy Toggle ====================
     proxySwitch.addEventListener('change', () => {
       useProxy = proxySwitch.checked;
+      loadFontFace();
       const fileToReload = activeFile;
       currentContent = null;
 
@@ -1736,6 +1742,7 @@
     });
 
     // ==================== Init ====================
+    loadFontFace();
     loadTree();
 
   })();
