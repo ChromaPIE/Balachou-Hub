@@ -1,6 +1,2 @@
 [build]
-  command = "npm install && node scripts/generate-font-subset.mjs"
   publish = "."
-
-[build.environment]
-  NODE_VERSION = "20"
