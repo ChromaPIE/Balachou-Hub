@@ -1245,7 +1245,7 @@
       const name = path.split('/').pop().toLowerCase();
       if (settings.hideEnglishFiles && /^en[-_]us\.lua$/i.test(name)) return true;
       if (settings.hideInternalFiles) {
-        return path === '.gitattributes' || path === 'LICENSE' || path.startsWith('.github/');
+        return path === '.gitattributes' || path === '.gitignore' || path === 'LICENSE' || path.startsWith('.github/') || path.startsWith('assets/') || path.startsWith('scripts/');
       }
       return false;
     }
