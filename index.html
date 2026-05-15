@@ -1412,13 +1412,13 @@
 
     // ==================== Deep Links ====================
     function filePathToHash(path) {
-      return '#/file/' + encodeURIComponent(path);
+      return '#/file/' + encodeURI(path);
     }
 
     function hashToFilePath() {
       const prefix = '#/file/';
       if (!location.hash.startsWith(prefix)) return null;
-      try { return decodeURIComponent(location.hash.slice(prefix.length)); }
+      try { return decodeURI(location.hash.slice(prefix.length)); }
       catch { return null; }
     }
 
