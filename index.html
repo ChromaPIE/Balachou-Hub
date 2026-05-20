@@ -53,6 +53,7 @@
       line-height: 1.6;
       overflow: hidden;
       height: 100vh;
+      height: 100dvh;
       -webkit-font-smoothing: antialiased;
     }
 
@@ -82,12 +83,17 @@
       0%, 100% { transform: translateY(0) rotate(-2deg); }
       50% { transform: translateY(-6px) rotate(2deg); }
     }
+    @keyframes bylinePulse {
+      0%, 100% { opacity: .9; text-shadow: 0 0 4px rgba(227,0,59,.28); }
+      50% { opacity: 1; text-shadow: 0 0 10px rgba(227,0,59,.5); }
+    }
 
     /* ==================== Layout ==================== */
     .app {
       display: flex;
       flex-direction: column;
       height: 100vh;
+      height: 100dvh;
       position: relative;
     }
     .app::before {
@@ -164,6 +170,15 @@
       letter-spacing: 0.5px;
       text-transform: uppercase;
       animation: fadeIn .4s ease .1s both;
+    }
+    .subtitle-by {
+      color: #e3003b;
+      font-family: 'Rubik', var(--font-sans);
+      font-weight: 700;
+      font-style: italic;
+      text-transform: none;
+      letter-spacing: .2px;
+      animation: bylinePulse 3.4s ease-in-out infinite;
     }
 
     .spacer { flex: 1; }
@@ -466,6 +481,8 @@
     .preview-wrapper {
       flex: 1;
       overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
       position: relative;
     }
     .preview-wrapper::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -593,13 +610,15 @@
       tab-size: 2;
       counter-reset: line;
       animation: fadeIn .2s ease;
+      min-width: 100%;
+      width: max-content;
     }
     .code-preview pre {
       margin: 0 !important;
       padding: 0 !important;
       background: var(--bg-primary) !important;
       border-radius: 0 !important;
-      overflow-x: auto;
+      overflow: visible;
     }
     .code-preview code {
       font-family: var(--font-mono) !important;
@@ -824,6 +843,16 @@
       .breadcrumb { font-size: 11px; }
 
       .code-preview .line-num { width: 40px; padding-right: 10px; margin-right: 10px; font-size: 11px; }
+      .code-preview { font-size: 12px; }
+      .code-preview code { font-size: 12px !important; }
+      .header { padding: 0 10px; gap: 8px; }
+      .header .proxy-switch .switch-label { display: none; }
+      .actions { gap: 4px; }
+      .actions .btn,
+      .file-actions .btn { width: 34px; height: 34px; padding: 0; justify-content: center; font-size: 0; }
+      .actions .btn .btn-icon,
+      .file-actions .btn .btn-icon { font-size: 15px; }
+      .settings-dialog { width: calc(100vw - 20px); }
     }
 
     @media (max-width: 480px) {
@@ -845,7 +874,7 @@
       <a class="logo" href="https://github.com/ChromaPIE/Balachou" target="_blank" rel="noopener">
         <span class="logo-icon">&#9824;</span> Balachou Hub
       </a>
-      <span class="subtitle">Balatro Mod Translations</span>
+      <span class="subtitle">Balatro Mod Translations <span class="subtitle-by">· By ChromaPIE</span></span>
       <label class="proxy-switch" title="使用 gh-proxy 加速访问 GitHub 内容">
         <input type="checkbox" id="proxySwitch" checked>
         <span class="track"></span>
@@ -1203,22 +1232,29 @@
       return files;
     }
 
+    function countMods(nodes) {
+      const mods = (nodes || []).find(n => n.type === 'dir' && n.name === 'Mods');
+      if (!mods) return 0;
+      return mods.children.filter(n => n.type === 'dir' && n.name !== 'ChromicPatch').length;
+    }
+
     function updateStats(nodes) {
-      let files = 0, totalSize = 0;
+      let totalSize = 0;
       function walk(list) {
         for (const n of list) {
           if (n.type === 'dir') walk(n.children);
-          else { files++; totalSize += n.size || 0; }
+          else totalSize += n.size || 0;
         }
       }
-      walk(nodes);
+      walk(treeData || []);
+      const visibleFiles = countFiles(nodes);
       const totalFiles = countFiles(treeData);
-      fileCount.innerHTML = files === totalFiles
-        ? String(files)
-        : `${files} <span class="count-muted">| ${totalFiles}</span>`;
+      fileCount.innerHTML = visibleFiles === totalFiles
+        ? String(visibleFiles)
+        : `${visibleFiles} <span class="count-muted">| ${totalFiles}</span>`;
       statsArea.innerHTML = `
-        <div class="stat"><div class="num">${files}</div><div class="label">Files</div></div>
-        <div class="stat"><div class="num">${nodes.length}</div><div class="label">Mods</div></div>
+        <div class="stat"><div class="num">${totalFiles}</div><div class="label">Files</div></div>
+        <div class="stat"><div class="num">${countMods(treeData)}</div><div class="label">Mods</div></div>
         <div class="stat"><div class="num">${formatSize(totalSize)}</div><div class="label">Total</div></div>
       `;
     }
@@ -1242,10 +1278,11 @@
     }
 
     function shouldHideFile(path) {
+      if (path.startsWith('Mods/ChromicPatch/')) return false;
       const name = path.split('/').pop().toLowerCase();
       if (settings.hideEnglishFiles && /^en[-_]us\.lua$/i.test(name)) return true;
       if (settings.hideInternalFiles) {
-        return path === '.gitattributes' || path === '.gitignore' || path === 'LICENSE' || path.startsWith('.github/') || path.startsWith('assets/') || path.startsWith('scripts/');
+        return name.endsWith('.cmeta') || path === '.gitattributes' || path === '.gitignore' || path === 'LICENSE' || path.startsWith('.github/') || path.startsWith('assets/') || path.startsWith('scripts/');
       }
       return false;
     }
@@ -1467,7 +1504,7 @@
 
     function fileIconSVG(name) {
       const ext = name.split('.').pop().toLowerCase();
-      return ICONS[ext] || ICONS.file;
+      return ext === 'cmeta' ? ICONS.json : (ICONS[ext] || ICONS.file);
     }
 
     // ==================== Open File ====================
@@ -1510,7 +1547,7 @@
     // ==================== Render Preview ====================
     function renderPreview(node, content) {
       const ext = node.name.split('.').pop().toLowerCase();
-      if (ext === 'json') {
+      if (ext === 'json' || ext === 'cmeta') {
         renderJSON(content);
       } else if (['lua', 'toml', 'md'].includes(ext)) {
         renderCode(content, ext);
